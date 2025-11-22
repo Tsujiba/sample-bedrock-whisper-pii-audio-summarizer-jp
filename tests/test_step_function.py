@@ -5,7 +5,7 @@ import os
 from botocore.exceptions import ClientError
 
 class StepFunctionTester:
-    def __init__(self, region='us-west-1', state_machine_name='VoiceProcessingStateMachine', 
+    def __init__(self, region='us-east-1', state_machine_name='VoiceProcessingStateMachine', 
                  upload_bucket=None, summaries_bucket=None):
         self.s3 = boto3.client('s3')
         self.region = region
@@ -153,7 +153,7 @@ def main():
     
     parser = argparse.ArgumentParser(description='Test AWS Step Functions for audio processing')
     parser.add_argument('--file', '-f', required=True, help='Path to the audio file to process (WAV format recommended)')
-    parser.add_argument('--region', default='us-west-1', help='AWS region for the Step Function')
+    parser.add_argument('--region', default='us-east-1', help='AWS region for the Step Function')
     parser.add_argument('--state-machine', default='VoiceProcessingStateMachine', 
                         help='Name or ARN of the Step Function state machine')
     parser.add_argument('--upload-bucket', required=True, help='S3 bucket for uploading audio files')

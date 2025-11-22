@@ -160,10 +160,10 @@ cd backend-cdk
 npm install
 
 # Bootstrap CDK (only needed once per AWS account/region)
-cdk bootstrap aws://$(aws sts get-caller-identity --query 'Account' --output text)/$(aws configure get region)
+npm run cdk bootstrap aws://$(aws sts get-caller-identity --query 'Account' --output text)/$(aws configure get region)
 
 # Deploy the stack after configuring the required values
-cdk deploy
+npm run cdk deploy
 ```
 
 **Important**: After deployment completes, CDK will output several values. Make note of:
@@ -411,7 +411,7 @@ Follow these steps to get the application running quickly:
    # Create a .env file in the frontend-ui directory
    cat > frontend-ui/.env << EOL
    REACT_APP_API_ENDPOINT=http://localhost:3000/dev
-   REACT_APP_REGION=us-west-1
+   REACT_APP_REGION=us-east-1
    REACT_APP_UPLOAD_BUCKET=frontend-uploads-dev
    REACT_APP_SUMMARIES_BUCKET=frontend-summaries-dev
    EOL

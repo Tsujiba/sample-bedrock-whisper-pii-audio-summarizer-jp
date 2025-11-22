@@ -5,10 +5,10 @@
 
 const config = {
   // API Gateway endpoint from CDK output
-  apiEndpoint: 'https://your-api-id.execute-api.us-west-1.amazonaws.com/prod',
+  apiEndpoint: 'https://your-api-id.execute-api.us-east-1.amazonaws.com/prod',
   
   // AWS region where your resources are deployed
-  region: 'us-west-1',
+  region: 'us-east-1',
   
   // S3 bucket names from CDK output
   uploadBucket: 'frontend-uploads-dev',

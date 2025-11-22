@@ -83,15 +83,21 @@ def lambda_handler(event, context):
     bedrock_runtime = bedrock  # reuse the same client for both model invocation and guardrails
     
     # Guardrail ID - using the ARN from environment variable (required)
-    guardrail_id = os.environ['GUARDRAIL_ID']
-    if not guardrail_id:
-        raise ValueError("GUARDRAIL_ID environment variable must be set")
+    # guardrail_id = os.environ['GUARDRAIL_ID']
+    # if not guardrail_id:
+    #     raise ValueError("GUARDRAIL_ID environment variable must be set")
     
     # Extract bucket name and object key from the speaker identification output
-    speaker_identification = event.get('SpeakerIdentification', {})
-    speaker_payload = speaker_identification.get('Payload', {})
-    bucket_name = speaker_payload.get('bucket_name')
-    object_key = speaker_payload.get('object_key')
+    # speaker_identification = event.get('SpeakerIdentification', {})
+    # speaker_payload = speaker_identification.get('Payload', {})
+    # bucket_name = speaker_identification.get('bucket_name')
+    # object_key = speaker_identification.get('object_key')
+    bucket_name = event.get('bucket_name')
+    object_key = event.get('object_key')
+
+    print(bucket_name)
+    print(object_key)
+
     
     if not bucket_name or not object_key:
         print("Missing bucket_name or object_key in input")
@@ -106,14 +112,14 @@ def lambda_handler(event, context):
     
     # Apply guardrail to redact sensitive content in the transcription
     logger.info("Applying guardrail to transcription...")
-    redacted_content = apply_guardrail(bedrock_runtime, content, guardrail_id)
+    # redacted_content = apply_guardrail(bedrock_runtime, content, guardrail_id)
     
     # Log redaction statistics if content was modified
-    if content != redacted_content:
-        logger.info("Sensitive content was redacted from transcription")
+    # if content != redacted_content:
+    #     logger.info("Sensitive content was redacted from transcription")
 
     # Construct the prompt with redacted content
-    prompt = f"{redacted_content}\n\nGive me the summary, speakers, key discussions, and action items with owners"
+    prompt = f"{content}\n\nGive me the summary, speakers, key discussions, and action items in japanese"
 
     # Construct the request payload
     body = json.dumps({
@@ -124,7 +130,7 @@ def lambda_handler(event, context):
     })
     
     # Invoke the model
-    modelId = "anthropic.claude-3-5-sonnet-20240620-v1:0"
+    modelId = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
     response = bedrock.invoke_model(body=body, modelId=modelId)
     
     # Parse the response
@@ -133,12 +139,12 @@ def lambda_handler(event, context):
     summary = content[0]['text']
     
     # Optionally apply guardrail again to the summary to ensure all sensitive content is redacted
-    logger.info("Applying guardrail to generated summary...")
-    redacted_summary = apply_guardrail(bedrock_runtime, summary, guardrail_id)
+    # logger.info("Applying guardrail to generated summary...")
+    # redacted_summary = apply_guardrail(bedrock_runtime, summary, guardrail_id)
     
     # Log if any additional content was redacted from the summary
-    if summary != redacted_summary:
-        logger.info("Additional sensitive content was redacted from summary")
+    # if summary != redacted_summary:
+    #     logger.info("Additional sensitive content was redacted from summary")
     
     # Generate output filename
     # Input: Transcription-Output-for-uploads/sample-team-meeting-recording-XXXX-XXXX-XXXX-XXXX.mp4-speaker-identification.txt
@@ -150,7 +156,7 @@ def lambda_handler(event, context):
     # Use the same bucket for summaries
     summaries_bucket = bucket_name
     
-    s3.put_object(Bucket=summaries_bucket, Key=output_key, Body=redacted_summary.encode('utf-8'))
+    s3.put_object(Bucket=summaries_bucket, Key=output_key, Body=summary.encode('utf-8'))
     
     return {
         'bucket_name': summaries_bucket,

@@ -14,10 +14,16 @@ def lambda_handler(event, context):
         
         # Lambda Invoke tasks in Step Functions wrap outputs in a 'Payload' field
         # Access TranscriptFileUri from the correct path in the event structure
-        transcription_job = event.get('TranscriptionJob', {}).get('Payload', {})
-        transcription_job_details = transcription_job.get('TranscriptionJob', {})
-        transcript = transcription_job_details.get('Transcript', {})
+        # transcription_job = event.get('TranscriptionJob', {}).get('Payload', {})
+        transcription_job = event.get('TranscriptionJob', {})       
+        # transcription_job_details = transcription_job.get('TranscriptionJob', {})
+        transcript = transcription_job.get('Transcript', {})
         transcript_file_uri = transcript.get('TranscriptFileUri', None)
+
+        print("transcription_job:",transcription_job)
+        # print("transcription_job_details:",transcription_job_details)
+        print("transcript:",transcript)
+        print("1:",transcript_file_uri)
         
         # If TranscriptFileUri is still not found, try direct path as fallback
         if not transcript_file_uri and 'TranscriptionJob' in event:
@@ -34,7 +40,7 @@ def lambda_handler(event, context):
             raise ValueError("TranscriptFileUri is missing from the event")
             
         # Extract the bucket name and key from the S3 URI
-        # URI format: https://s3.us-west-1.amazonaws.com/bucket-name/key
+        # URI format: https://s3.us-east-1.amazonaws.com/bucket-name/key
         parts = transcript_file_uri.split('/')
         bucket_name = parts[3]
         object_key = '/'.join(parts[4:])

@@ -384,7 +384,7 @@ def transcribe_chunk(sagemaker_client, chunk_data, endpoint_name):
         # Create payload in the format expected by Whisper endpoints
         payload = {
             "audio_input": hex_audio,
-            "language": "english",
+            "language": "japanese",
             "task": "transcribe",
             "top_p": 0.9
         }

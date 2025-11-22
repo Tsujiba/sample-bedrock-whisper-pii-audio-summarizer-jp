@@ -84,7 +84,7 @@ if [ ! -f ".env" ]; then
     echo "Creating example .env file for frontend..."
     cat > .env << EOL
 REACT_APP_API_ENDPOINT=http://localhost:3000/dev
-REACT_APP_REGION=${REGION:-us-west-1}
+REACT_APP_REGION=${REGION:-us-east-1}
 REACT_APP_UPLOAD_BUCKET=frontend-uploads-dev
 REACT_APP_SUMMARIES_BUCKET=frontend-summaries-dev
 EOL

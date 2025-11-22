@@ -71,7 +71,7 @@ export class AudioSummarizerStack extends cdk.Stack {
         UPLOADS_BUCKET: uploadsBucket.bucketName,
         SUMMARIES_BUCKET: summariesBucket.bucketName,
         REGION: cdk.Stack.of(this).region,
-        WHISPER_ENDPOINT: 'endpoint-quick-start-irrc7' // Must be configured before deployment
+        WHISPER_ENDPOINT: 'endpoint-quick-start-nz5vd' // Must be configured before deployment
       },
       logRetention: logs.RetentionDays.ONE_WEEK
     });
@@ -86,7 +86,19 @@ export class AudioSummarizerStack extends cdk.Stack {
       resources: [
         // Specify the exact model ARNs that will be used
         `arn:aws:bedrock:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:model/anthropic.claude-3-sonnet-20240229-v1:0`,
+        `arn:aws:bedrock:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:model/*`,
         `arn:aws:bedrock:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:model/anthropic.claude-3-haiku-20240307-v1:0`
+      ] // Restricted to specific models
+    }));
+
+    whisperTranscriptionFunction.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW, 
+      actions: [
+        'sagemaker:InvokeEndpoint',
+      ],
+      resources: [
+        // Specify the exact model ARNs that will be used
+        '*'
       ] // Restricted to specific models
     }));
 
@@ -142,7 +154,7 @@ export class AudioSummarizerStack extends cdk.Stack {
       environment: {
         SUMMARIES_BUCKET: summariesBucket.bucketName,
         REGION: cdk.Stack.of(this).region,
-        GUARDRAIL_ID: 'arn:aws:bedrock:us-east-1:064080936720:guardrail-profile/us.guardrail.v1:0' // Must be configured before deployment
+        // GUARDRAIL_ID: 'xxxx' // Must be configured before deployment
       },
       logRetention: logs.RetentionDays.ONE_WEEK
     });
@@ -156,8 +168,7 @@ export class AudioSummarizerStack extends cdk.Stack {
       ],
       resources: [
         // Specify the exact model ARNs that will be used
-        `arn:aws:bedrock:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:model/anthropic.claude-3-sonnet-20240229-v1:0`,
-        `arn:aws:bedrock:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:model/anthropic.claude-3-haiku-20240307-v1:0`
+        '*' 
       ] // Restricted to specific models
     }));
     
@@ -203,9 +214,13 @@ export class AudioSummarizerStack extends cdk.Stack {
     });
 
     // Define a workflow that combines all these steps
+    // const definition = transcribeTask
+    //   .next(identifySpeakersTask)
+    //   .next(redactPIITask)
+    //   .next(generateSummaryTask);
+
     const definition = transcribeTask
       .next(identifySpeakersTask)
-      .next(redactPIITask)
       .next(generateSummaryTask);
 
     // Create the state machine with the defined workflow
