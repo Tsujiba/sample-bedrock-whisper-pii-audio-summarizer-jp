@@ -184,6 +184,28 @@ export class AudioSummarizerStack extends cdk.Stack {
       ]
     }));
 
+    bedrockSummaryFunction.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        "s3:Abort*",
+        "s3:DeleteObject*",
+        "s3:GetBucket*",
+        "s3:GetObject*",
+        "s3:List*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging"
+      ],
+      resources: [
+        // Use a template literal with a variable to allow customization
+        // Using wildcard for flexibility, but could be restricted to specific guardrail ARN
+        "arn:aws:s3:::kendra-s3-datasource",
+        "arn:aws:s3:::kendra-s3-datasource/*"
+      ]
+    }));
+
     // Grant Lambda access to S3 with specific permissions instead of wildcard
     uploadsBucket.grantRead(whisperTranscriptionFunction); // More specific permission
     summariesBucket.grantReadWrite(whisperTranscriptionFunction);

@@ -3,6 +3,9 @@ import boto3
 import uuid
 import logging
 import os
+import re
+from datetime import datetime
+
 
 # Set up logging
 logger = logging.getLogger()
@@ -92,6 +95,7 @@ def lambda_handler(event, context):
     # speaker_payload = speaker_identification.get('Payload', {})
     # bucket_name = speaker_identification.get('bucket_name')
     # object_key = speaker_identification.get('object_key')
+
     bucket_name = event.get('bucket_name')
     object_key = event.get('object_key')
 
@@ -149,15 +153,168 @@ def lambda_handler(event, context):
     # Generate output filename
     # Input: Transcription-Output-for-uploads/sample-team-meeting-recording-XXXX-XXXX-XXXX-XXXX.mp4-speaker-identification.txt
     # Output: Bedrock-Sonnet-GenAI-summary-sample-team-meeting-recording-XXXX-XXXX-XXXX-XXXX.txt
+
+    # 特定のRAG用のS3データソースに格納
+    output_bucket_name = "kendra-s3-datasource"
+    object_prefix = "shokken-sales/"
+    # 現在日をyyyyMMdd形式で取得
+    current_date = datetime.now().strftime('%Y%m%d')
+    
+
+
     base_name = object_key.split('/')[-1]
-    file_id = base_name.replace('Transcription-Output-for-uploads/', '').replace('-speaker-identification.txt', '')
-    output_key = f"Bedrock-Sonnet-GenAI-summary-{file_id}.txt"
+    file_id = base_name.replace('Transcription-Output-for-', '').replace('.wav-speaker-identification.txt', '')
+    output_key = f"{object_prefix}{current_date}-{file_id}.txt"
     
     # Use the same bucket for summaries
     summaries_bucket = bucket_name
     
-    s3.put_object(Bucket=summaries_bucket, Key=output_key, Body=summary.encode('utf-8'))
+    s3.put_object(Bucket=output_bucket_name, Key=output_key, Body=summary.encode('utf-8'))
+
+    # メタデータファイルの作成
+
+    ## メタデータスキーマ定義
+    schema = {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "Simplified schema for analyzing and summarizing meeting minutes",
+        "type": "object",
+        "properties": {
+            "metadataAttributes":{
+                "customer": {
+                "type": "string",
+                "description": "Unique identifier for the customer name.",
+                "maxLength": 50
+                },
+                "customer_category": {
+                    "type": "string",
+                    "description": "Customer category, for example restaurant, supermarket, hotel and so on. English only",
+                    "maxLength": 50
+                },
+                "sentiment": {
+                    "type": "string",
+                    "description": "the deal is positive or negative",
+                    "maxLength": 10
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Short title of the meeting.",
+                    "maxLength": 20
+                },
+                "revenue": {
+                    "type": "string",
+                    "description": "The amount of the contract, proposal, or estimate within the deal. If there is no information about the amount, set it to None",
+                },
+                "practicality_score": {
+                    "type": "string",
+                    "description": "The practicality of this deal. The degree to which this negotiation becomes good practice or information for other sales, marketing, and product development. Estimate practicality between 0 and 100 (maximum 100)",
+                },
+                "keywords": {
+                    "type": "string",
+                    "description": "The keyword for this deal. Words that have appeared multiple times in business negotiations or words that symbolize business negotiations",
+                }
+            },
+        "required": ["customer_category", "sentiment", "title", "practicality_score", "keywords"]
+        }
+    }
+
+    ## メタデータ作成指示プロンプト
+    # instructions =  f"""
+    #     <input>{content}</input>
+    #     "You are an AI system tasked with analyzing meeting minutes to extract metadata.\n"
+    #     "1. Analyze the meeting minutes data provided within <input> tags. \n"
+    #     "2. Return a JSON response that complies with the provided schema. \n"
+    #     "3. If required fields are missing, return available fields with 'null' "
+    #     "for missing ones, and add an 'error' field explaining why.\n"
+    #     "Example of a valid JSON response: \n"
+    #     {
+    #         "metadataAttributes": {
+    #             "customer": "グランドホテル東京",
+    #             "customer_category": "hotel",
+    #             "sentiment": "positive",
+    #             "title": "業務用唐揚げの提案商談",
+    #             "revenue": "￥3,180,000",
+    #             "practicality_score": "85",
+    #             "keywords": "唐揚げ, 朝食バイキング, 定期配送",
+    #             "date": "2025-10-15"
+    #         }
+    #     }
+    # """
+
+    instructions = (
+        f"<input>{content}</input>\n"
+        "You are an AI system tasked with analyzing meeting minutes to extract "
+        "data.\n"
+        "1. Analyze the meeting minutes data provided within <input> tags. \n"
+        "2. Return a JSON response that complies with the provided schema. \n"
+        "3. If required fields are missing, return available fields with 'null' "
+        "for missing ones, and add an 'error' field explaining why.\n"
+        "Example of a valid JSON response: \n"
+        "{\n"
+        " \"metadataAttributes\": \"{\n"
+        " \"customer_category\": hotel,\n"
+        " \"sentiment\": positive,\n"
+        " \"title\": \"居酒屋への業務用からあげの提案商談\"\n"
+        " \"revenue\": \"￥40,000,000\"\n"
+        " \"practicality_score\": \"95\"\n"
+        " \"keywords\": \"受注, 唐揚げ, 裏メニュー\"\n"
+        "}\n"
+        "}"
+    )
+
+    body = {
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": 4096,
+        "temperature": 1,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": instructions},
+                    {"type": "text", "text": json.dumps(schema)},
+                ]
+            }
+        ]
+    }
+
+    response_invoke = bedrock.invoke_model(
+        modelId=modelId,
+        body=json.dumps(body)
+    )
+
+    response_output = json.loads(response_invoke.get('body').read())
+
+    # レスポンスからテキスト部分を取得
+    response_text = response_output['content'][0]['text']
+
+    # ```json から ``` までの部分を正規表現で抽出
+    json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
+    print(json_match)
+
+    if json_match:
+        # JSON部分のみを取得
+        json_string = json_match.group(1)
+        
+        # JSONとして解析
+        try:
+            result_json = json.loads(json_string)
+            print(type(result_json))
+            
+            # 綺麗に整形して出力
+            print(json.dumps(result_json, indent=2, ensure_ascii=False))
+        except json.JSONDecodeError as e:
+            print(f"JSON解析エラー: {e}")
+    else:
+        print("JSON部分が見つかりませんでした")
     
+    metadata_output_key = f"{object_prefix}{current_date}-{file_id}.txt.metadata.json"
+    
+    # Use the same bucket for summaries
+    summaries_bucket = bucket_name
+    
+    s3.put_object(Bucket=output_bucket_name, Key=metadata_output_key, Body=json_string.encode('utf-8'))
+    
+
+
     return {
         'bucket_name': summaries_bucket,
         'object_key': output_key,
