@@ -195,6 +195,11 @@ def lambda_handler(event, context):
                     "description": "the deal is positive or negative",
                     "maxLength": 10
                 },
+                "date": {
+                    "type": "string",
+                    "description": "meeting date, yyyy-MM-dd format",
+                    "maxLength": 15
+                },
                 "title": {
                     "type": "string",
                     "description": "Short title of the meeting.",
@@ -242,9 +247,10 @@ def lambda_handler(event, context):
 
     instructions = (
         f"<input>{content}</input>\n"
+        f"<date>{current_date}</date>\n"
         "You are an AI system tasked with analyzing meeting minutes to extract "
         "data.\n"
-        "1. Analyze the meeting minutes data provided within <input> tags. \n"
+        "1. Analyze the meeting minutes data provided within <input> tags and meeting data within <date> tags. \n"
         "2. Return a JSON response that complies with the provided schema. \n"
         "3. If required fields are missing, return available fields with 'null' "
         "for missing ones, and add an 'error' field explaining why.\n"
@@ -253,6 +259,7 @@ def lambda_handler(event, context):
         " \"metadataAttributes\": \"{\n"
         " \"customer_category\": hotel,\n"
         " \"sentiment\": positive,\n"
+        " \"date\": 2025-11-30,\n"
         " \"title\": \"居酒屋への業務用からあげの提案商談\"\n"
         " \"revenue\": \"￥40,000,000\"\n"
         " \"practicality_score\": \"95\"\n"

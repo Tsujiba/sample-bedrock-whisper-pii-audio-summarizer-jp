@@ -230,7 +230,7 @@ export class AudioSummarizerStack extends cdk.Stack {
       outputPath: '$.Payload',
     });
 
-    const generateSummaryTask = new tasks.LambdaInvoke(this, 'GenerateSummary', {
+    const generateSummaryTask = new tasks.LambdaInvoke(this, 'GenerateSummaryAndMetadata', {
       lambdaFunction: bedrockSummaryFunction,
       outputPath: '$.Payload',
     });
