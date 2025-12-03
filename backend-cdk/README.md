@@ -62,9 +62,10 @@ npm install typescript ts-node @types/node
 cdk bootstrap aws://$(aws sts get-caller-identity --query 'Account' --output text)/$(aws configure get region)
 ```
 
-4. **REQUIRED**: Configure the Whisper endpoint and Guardrail ID in `lib/audio-summarizer-stack.ts` file:
+4. **REQUIRED**: Configure the Whisper endpoint, Guardrail ID, and Knowledge Base settings in `lib/audio-summarizer-stack.ts` file:
    * Find the WhisperTranscriptionFunction and set the `WHISPER_ENDPOINT` environment variable
    * Find the BedrockSummaryFunction and set the `GUARDRAIL_ID` environment variable
+   * Find the KBSyncFunction and set the `KNOWLEDGE_BASE_ID` and `DATA_SOURCE_ID` environment variables
    * See the configuration sections below for detailed instructions
 
 5. Deploy the stack:
@@ -210,6 +211,36 @@ The infrastructure includes security features to protect sensitive information i
   - Physical addresses
   - Financial information
   - Other sensitive personal information
+
+## Knowledge Base Synchronization
+
+The application automatically syncs generated summaries to an AWS Bedrock Knowledge Base after processing:
+
+- **Automatic Sync**: After each summary is generated, the system triggers a Knowledge Base data source ingestion job
+- **Configuration**: Knowledge Base ID and Data Source ID must be configured before deployment:
+
+  ```typescript
+  // In audio-summarizer-stack.ts
+  environment: {
+    KNOWLEDGE_BASE_ID: 'your-knowledge-base-id', // Required
+    DATA_SOURCE_ID: 'your-data-source-id' // Required
+  }
+  ```
+
+- **IAM Permissions**: The Lambda execution role includes permissions to start ingestion jobs:
+  ```json
+  {
+    "Action": "bedrock:StartIngestionJob",
+    "Resource": "*",
+    "Effect": "Allow"
+  }
+  ```
+
+- **Creating a Knowledge Base**:
+  1. Follow the [AWS Documentation for Creating Knowledge Bases](https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base-create.html)
+  2. Configure an S3 data source pointing to your summaries bucket
+  3. Note the Knowledge Base ID and Data Source ID
+  4. Update the Lambda function environment variables
 
 ## Useful Commands
 

@@ -159,6 +159,19 @@ export class AudioSummarizerStack extends cdk.Stack {
       logRetention: logs.RetentionDays.ONE_WEEK
     });
 
+    // Create Knowledge Base Sync Lambda
+    const kbSyncFunction = new lambda.Function(this, 'KBSyncFunction', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'kb-sync.lambda_handler',
+      code: lambda.Code.fromAsset('lambda'),
+      timeout: cdk.Duration.seconds(60),
+      environment: {
+        KNOWLEDGE_BASE_ID: '', // Must be configured before deployment
+        DATA_SOURCE_ID: '' // Must be configured before deployment
+      },
+      logRetention: logs.RetentionDays.ONE_WEEK
+    });
+
     // Add Bedrock permissions to the summary Lambda with specific model ARNs
     bedrockSummaryFunction.addToRolePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
@@ -182,6 +195,15 @@ export class AudioSummarizerStack extends cdk.Stack {
         // Use a template literal with a variable to allow customization
         '*' // Using wildcard for flexibility, but could be restricted to specific guardrail ARN
       ]
+    }));
+
+    // Add Knowledge Base permissions for sync Lambda
+    kbSyncFunction.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'bedrock:StartIngestionJob'
+      ],
+      resources: ['*']
     }));
 
     bedrockSummaryFunction.addToRolePolicy(new iam.PolicyStatement({
@@ -235,6 +257,11 @@ export class AudioSummarizerStack extends cdk.Stack {
       outputPath: '$.Payload',
     });
 
+    const kbSyncTask = new tasks.LambdaInvoke(this, 'SyncKnowledgeBase', {
+      lambdaFunction: kbSyncFunction,
+      outputPath: '$.Payload',
+    });
+
     // Define a workflow that combines all these steps
     // const definition = transcribeTask
     //   .next(identifySpeakersTask)
@@ -243,7 +270,8 @@ export class AudioSummarizerStack extends cdk.Stack {
 
     const definition = transcribeTask
       .next(identifySpeakersTask)
-      .next(generateSummaryTask);
+      .next(generateSummaryTask)
+      .next(kbSyncTask);
 
     // Create the state machine with the defined workflow
     const stateMachine = new sfn.StateMachine(this, 'AudioSummarizerWorkflow', {
@@ -288,6 +316,7 @@ export class AudioSummarizerStack extends cdk.Stack {
     whisperTranscriptionFunction.grantInvoke(stateMachine);
     speakerIdentificationFunction.grantInvoke(stateMachine);
     bedrockSummaryFunction.grantInvoke(stateMachine);
+    kbSyncFunction.grantInvoke(stateMachine);
 
     // Create API access logs group with appropriate retention
     const apiAccessLogs = new logs.LogGroup(this, 'ApiAccessLogs', {
